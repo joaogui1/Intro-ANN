@@ -204,14 +204,14 @@ for et in x_ax:
     #print(list(zip(X, y)))
     mean = [0.0, 0.0]
     for i in range(30):
-        X, y = get_data_reg("music.csv")
+        X, y = get_data_reg("wine.csv")
         X = normalize(X)
         ANN = Mlp([len(X[0]), 10, len(y[0])], et)
         ANN.train(X, y)
-        mean[0] += ANN.regression(X, y)
-        X, y = get_data_reg("music_test.csv")
+        mean[0] += ANN.classification(X, y)
+        X, y = get_data_reg("wine_test.csv")
         X = normalize(X)
-        mean[1] += ANN.regression(X, y)
+        mean[1] += ANN.classification(X, y)
         print(et)
 
     accuracy[0].append(mean[0]/30.0)
@@ -220,12 +220,12 @@ for et in x_ax:
     # print(mean[0]/50.0)
     # print(mean[1]/50.0)
 
-mpl.plot(x_ax, accuracy_one_layer[0], 'b', x_ax, accuracy_one_layer[1], 'r')
+mpl.plot(x_ax, accuracy[0], 'b', x_ax, accuracy[1], 'r')
 mpl.plot(x_ax, accuracy[0], label='Training dataset')
 mpl.plot(x_ax, accuracy[1], label='Test dataset')
 mpl.legend()
 mpl.title("Mean square error with different number of epochs")
-mpl.ylabel("Mean Square Error")
+mpl.ylabel("Accuracy")
 mpl.xlabel("Number of epochs")
 mpl.ylim(0.0, 1.0)
 mpl.show()
