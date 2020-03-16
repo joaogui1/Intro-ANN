@@ -14,7 +14,7 @@ def get_data(datafile):
 
     onehot_targets = np.zeros((targets.shape[0], 3))
     for i in range(targets.shape[0]):
-        onehot_targets[i][targets[i] - 1] = 255
+        onehot_targets[i][targets[i] - 1] = 1
     return features, onehot_targets
 
 def normalize(X):
@@ -22,6 +22,18 @@ def normalize(X):
     min_max_scaler = preprocessing.MinMaxScaler()
     x_scaled = min_max_scaler.fit_transform(X)
     return x_scaled
+
+
+def _neuron_locations(m, n):
+    """
+    Yields one by one the 2-D locations of the individual neurons
+    in the SOM.
+    """
+    #Nested iterations over both dimensions
+    #to generate all 2-D locations in the map
+    for i in range(m):
+        for j in range(n):
+            yield np.array([i, j])
 
 
 class SOM(object):
@@ -75,7 +87,7 @@ class SOM(object):
             #Matrix of size [m*n, 2] for SOM grid locations
             #of neurons
             self._location_vects = tf.constant(np.array(
-                list(self._neuron_locations(m, n))))
+                list(_neuron_locations(m, n))))
 
             ##PLACEHOLDERS FOR TRAINING INPUTS
             #We need to assign them as attributes to self, since they
@@ -139,17 +151,6 @@ class SOM(object):
             init_op = tf.global_variables_initializer()
             self._sess.run(init_op)
 
-    def _neuron_locations(self, m, n):
-        """
-        Yields one by one the 2-D locations of the individual neurons
-        in the SOM.
-        """
-        #Nested iterations over both dimensions
-        #to generate all 2-D locations in the map
-        for i in range(m):
-            for j in range(n):
-                yield np.array([i, j])
-
     def train(self, input_vects):
         """
         Trains the SOM.
@@ -212,23 +213,46 @@ class SOM(object):
 train_features, train_targets = get_data('wine.csv')
 train_features = normalize(train_features)
 
-input_output = {}
-for idx, x in enumerate(train_features):
-    input_output[tuple(x)] = train_targets[idx]
+NUM_ROWS = 13
+NUM_COLUMNS = 13
+MAX_DIFF = 0.0
 
-self_organizing = SOM(30, 60, 13)
+self_organizing = SOM(NUM_ROWS, NUM_COLUMNS, 13, epochs =1000)
 self_organizing.train(train_features)
 centroids = np.asarray(self_organizing.get_centroids())
 SO_map = self_organizing.map_vects(train_features)
 
-image_grid = []
-for cent in centroids:
-    image_grid.append([])
-    for idx, vec in enumerate(cent):
-        idx_min = np.argmin([np.linalg.norm(x - vec) for x in train_features])
-        image_grid[-1].append(train_targets[idx_min])
+image_grid = np.zeros((NUM_ROWS, NUM_COLUMNS, 3))
 
-image_grid = np.asarray(image_grid)
+'''The commented code below was used to generate the association map'''
+for idx, inp in enumerate(train_features):
+    idx_min = np.argmin([np.linalg.norm(node - inp) for line in centroids for node in line])
+    idx_min = np.unravel_index(idx_min, (NUM_COLUMNS, NUM_ROWS))
+    image_grid[idx_min] += train_targets[idx]
+
+for idl, _ in enumerate(image_grid):
+    for idc, _ in enumerate(image_grid[idl]):
+        if np.linalg.norm(image_grid[idl][idc]) > 0:
+            image_grid[idl][idc] /= np.linalg.norm(image_grid[idl][idc])
+
+for idl, _ in enumerate(image_grid):
+    for idc, _ in enumerate(image_grid[idl]):
+        if np.linalg.norm(image_grid[idl][idc]) < 1e-5:
+            cont = 0
+            if idl > 0:
+                cont += 1
+                image_grid[idl][idc] += image_grid[idl - 1][idc]
+            if idc > 0:
+                cont += 1
+                image_grid[idl][idc] += image_grid[idl][idc - 1]
+            if idl + 1 < NUM_ROWS:
+                cont += 1
+                image_grid[idl][idc] += image_grid[idl + 1][idc]
+            if idc + 1 < NUM_COLUMNS:
+                cont += 1
+                image_grid[idl][idc] += image_grid[idl][idc + 1]
+            image_grid[idl][idc] /= cont
+
 
 plt.imshow(image_grid)
 plt.show()
